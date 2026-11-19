@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8">
+<html lang="es"><head><meta charset="utf-8"><meta http-equiv="Cache-Control" content="no-cache, must-revalidate"><meta name="ayura-build" content="20261119173551">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tablero PTAP La Ayurá · Fase I</title>
 <style>
@@ -1044,6 +1044,28 @@ function render(){
  ({kpi:kpi,esp:espView,atr:atrView,pro:proView,bus:busView,cro:()=>frameView("cro"),bal:balView,fac:facView,fre:freView,bit:bitView}[VIEW]||home)();const VK=VIEW+'|'+[ESPSEL,FRE_F,FRE_S,BSEL].join();if(LASTV!==VK){window.scrollTo(0,0);LASTV=VK}else{window.scrollTo(0,SY)}}
 
 /* ---------- carga del avance semanal ---------- */
+
+/* auto-actualización: avisa si hay versión nueva publicada */
+(function(){
+ const MY=(document.querySelector('meta[name="ayura-build"]')||{}).content;
+ if(!MY||MY.indexOf("__BUI")===0||location.protocol==="file:")return;
+ let shown=false;
+ async function chk(){
+  if(shown)return;
+  try{
+   const r=await fetch(location.pathname+"?v="+Date.now(),{cache:"no-store"});
+   const h=await r.text();const m=h.match(/name="ayura-build" content="([^"]+)"/);
+   if(m&&m[1]!==MY){shown=true;
+    const b=document.createElement("div");b.className="glass";
+    b.style.cssText="position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;padding:12px 18px;border-radius:16px;display:flex;gap:12px;align-items:center;color:#fff;font:600 14px Inter,system-ui,sans-serif;background:rgba(14,40,80,.92);border:1px solid rgba(255,255,255,.25)";
+    b.innerHTML='<span>Hay una versión nueva del tablero</span><button class="btn gr" style="cursor:pointer">Actualizar</button>';
+    b.querySelector("button").onclick=()=>{location.replace(location.pathname+"?v="+m[1])};
+    document.body.appendChild(b)}
+  }catch(e){}
+ }
+ setTimeout(chk,4000);setInterval(chk,120000);
+ document.addEventListener("visibilitychange",()=>{if(!document.hidden)chk()});
+})();
 function toast(msg,err){const e=document.createElement("div");e.className="toast glass";e.style.color=err?"#ffb3b3":"#fff";e.textContent=msg;document.body.appendChild(e);setTimeout(()=>e.remove(),5200)}
 function isoDate(v){if(v instanceof Date)return v.getFullYear()+"-"+pad(v.getMonth()+1)+"-"+pad(v.getDate());if(typeof v==="number"){const d=new Date(Math.round((v-25569)*864e5));return d.getUTCFullYear()+"-"+pad(d.getUTCMonth()+1)+"-"+pad(d.getUTCDate())}return String(v||"").slice(0,10)}
 function loadExcel(buf,fname){
