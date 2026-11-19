@@ -104,6 +104,7 @@ svg text{font-family:inherit}
 .pmx{margin-top:16px}.pmx-h{all:unset;box-sizing:border-box;width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer}.pmx-c{font-weight:800;font-size:.95rem;padding:8px 16px;border-radius:999px;background:rgba(255,255,255,.12);white-space:nowrap}
 .pmx table{width:100%;border-collapse:separate;border-spacing:4px 6px;min-width:760px}.pmx th{font-size:.82rem;letter-spacing:.07em;text-transform:uppercase;font-weight:800;color:rgba(255,255,255,.7);padding:6px 10px;text-align:center}.pmx th.fh{text-align:left}.pmx th.on{color:#62cbff}.pmx th.late,.pmx td.late{color:#ff9a9a}
 .pmx td{padding:14px 10px;text-align:center;font-weight:700;font-size:1.05rem;cursor:pointer;border-radius:12px;background:rgba(255,255,255,.04)}.pmx td.fn{text-align:left;font-size:1.05rem;background:rgba(255,255,255,.08);white-space:nowrap}.pmx td.pc{background:rgba(var(--rgb),var(--a))}.pmx td.pc.sel{outline:2px solid #fff}.pmx td.tot{background:rgba(255,255,255,.1);font-size:1.08rem}.pmx tr.on td.fn{color:#62cbff;box-shadow:inset 3px 0 0 #62cbff}.pmx tr.tt td{background:rgba(255,255,255,.14)}.pmx td:hover{filter:brightness(1.25)}
+.rt{font-size:.8rem;color:#9fd8ff;font-weight:600;margin-bottom:2px}.xab{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.manb{font-size:.7rem;font-weight:800;color:#1b1200;background:#ffd98a;border-radius:999px;padding:2px 9px}
 </style></head><body>
 <div id="bg"><svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
 <defs>
@@ -246,7 +247,7 @@ const MODS=[
  {id:"pro",t:"Proyección",d:"Jugar con lo que se ejecuta cada mes",i:"proj",c:"linear-gradient(135deg,#f5a524,#d97d0a)",on:true},
  {id:"bus",t:"Buscador",d:"Pregunta y te muestra las actividades",i:"find",c:"linear-gradient(135deg,#18b8d6,#0a86a6)",on:true},
  {id:"fac",t:"Facturación",d:"Actas y lo que falta por facturar",i:"cash",c:"linear-gradient(135deg,#e0559b,#b02f73)",on:true},
- {id:"fre",t:"Lotes de trabajo",d:"Cada lote por especialidad, con su avance",i:"front",c:"linear-gradient(135deg,#4f7cff,#7a3fd6)",on:true},
+ {id:"fre",t:"Lotes de control",d:"Cada lote por especialidad, con su avance",i:"front",c:"linear-gradient(135deg,#4f7cff,#7a3fd6)",on:true},
  {id:"bit",t:"Bitácora",d:"Quién hizo qué y cuándo",i:"log",c:"linear-gradient(135deg,#7b8794,#4b5563)",on:true},
  {id:"bal",t:"Balance",d:"Qué falta: contrato, adicional y extra",i:"bal",c:"linear-gradient(135deg,#2fc7b0,#13917f)",on:true}];
 function home(){
@@ -731,23 +732,152 @@ function sCurve(L){
  <div class="n" style="display:flex;gap:18px;flex-wrap:wrap"><span><b style="color:#62cbff">━</b> programado</span><span><b style="color:#3ee08f">●</b> real al corte</span><span><b style="color:#3ee08f">╍</b> si se cumple lo que falta, según fechas programadas</span></div></div>`}
 function freTiles(arr,civil,big){return arr.map(f=>{const l=freLeaves(f,civil),s=freStats(l);if(!l.length)return"";
  return `<button class="tile glass spbtn" data-f="${f.id}" style="--sc:${f.c};height:auto;min-height:270px;justify-content:space-between"><div><h3 class="spname">${f.t}</h3><div style="font-size:${big?"3rem":"2.2rem"};font-weight:800;letter-spacing:-.03em;margin-top:6px">${Math.round(s.pc)}<small style="font-size:1.1rem">%</small></div><p>de avance · debería ir <b>${Math.round(s.pp)}%</b></p></div><div class="pb big" style="height:16px;flex:none"><b style="width:${s.pc}%"></b></div><p style="margin-top:8px">${s.ok} de ${s.n} terminadas${s.late?` · <b style="color:#ff8f8f">${s.late} atrasadas</b>`:""}</p></button>`}).join("")}
+/* ===== Lotes de control: carátula + correo a interventoría ===== */
+function loteResumen(){const NT=notasGet();return FRG.map(g=>{const l=freLeaves(g,false);if(!l.length)return null;const s=freStats(l);const notas=l.filter(t=>NT[t.w]&&NT[t.w].t&&NT[t.w].t.trim()).sort((a,b)=>(NT[b.w].d||"")<(NT[a.w].d||"")?-1:1).map(t=>({w:t.w,n:t.n,t:NT[t.w].t.trim(),a:NT[t.w].a||"",d:NT[t.w].d||""}));return {g,s,notas}}).filter(Boolean)}
+function loteCoverPng(R){
+ const W=1500,PAD=44,GAP=22,CW=(W-PAD*2-GAP)/2,S=2,F="-apple-system,Segoe UI,Inter,Arial,sans-serif";
+ const m=document.createElement("canvas").getContext("2d");
+ const wrap=(g,txt,font,max)=>{g.font=font;const out=[];let line="";for(const w of String(txt).replace(/\s+/g," ").split(" ")){const t=line?line+" "+w:w;if(g.measureText(t).width>max&&line){out.push(line);line=w}else line=t}if(line)out.push(line);return out};
+ const MAXN=4,MAXL=3;
+ const cards=R.map(r=>{const ls=[];r.notas.slice(0,MAXN).forEach(n=>{const a=wrap(m,n.t,`500 17px ${F}`,CW-56);ls.push({h:n.n.length>58?n.n.slice(0,56)+"…":n.n,l:a.slice(0,MAXL),cut:a.length>MAXL})});
+  let h=128;ls.forEach(x=>{h+=22+x.l.length*23+10});if(r.notas.length>MAXN)h+=26;if(!r.notas.length)h+=34;return {r,ls,h:h+18}});
+ const rows=[];for(let i=0;i<cards.length;i+=2)rows.push([cards[i],cards[i+1]]);
+ const HH=190,H=HH+rows.reduce((s,r)=>s+Math.max(r[0].h,r[1]?r[1].h:0)+GAP,0)+60;
+ const cv=document.createElement("canvas");cv.width=W*S;cv.height=H*S;const g=cv.getContext("2d");g.scale(S,S);
+ const gr=g.createLinearGradient(0,0,W,H);gr.addColorStop(0,"#0b2547");gr.addColorStop(1,"#0a1730");g.fillStyle=gr;g.fillRect(0,0,W,H);
+ const rr=(x,y,w,h,r,f)=>{g.beginPath();g.roundRect(x,y,w,h,r);g.fillStyle=f;g.fill()};
+ g.fillStyle="rgba(255,255,255,.55)";g.font=`700 20px ${F}`;g.fillText("PTAP LA AYURÁ · FASE I · SEGUIMIENTO",PAD,58);
+ g.fillStyle="#fff";g.font=`800 56px ${F}`;g.fillText("Lotes de control",PAD,122);
+ g.fillStyle="rgba(255,255,255,.7)";g.font=`500 22px ${F}`;g.fillText("Corte del cronograma: "+fd(CORTE)+"  ·  Seguimiento del "+new Date().toLocaleDateString("es-CO",{day:"numeric",month:"long",year:"numeric"}),PAD,162);
+ let y=HH;
+ rows.forEach(row=>{const rh=Math.max(row[0].h,row[1]?row[1].h:0);
+  row.forEach((c,i)=>{if(!c)return;const x=PAD+i*(CW+GAP),{r}=c,col=r.g.c;
+   rr(x,y,CW,rh,22,"rgba(255,255,255,.08)");rr(x,y,8,rh,4,col);
+   g.fillStyle="#fff";g.font=`700 27px ${F}`;g.fillText(r.g.t,x+28,y+42);
+   g.fillStyle=col;g.font=`800 44px ${F}`;g.fillText(Math.round(r.s.pc)+"%",x+28,y+94);
+   g.fillStyle="rgba(255,255,255,.65)";g.font=`500 18px ${F}`;g.fillText("de avance",x+28+g.measureText(Math.round(r.s.pc)+"%").width*0+110,y+92);
+   g.font=`700 19px ${F}`;const late=Math.round(r.s.pp)-Math.round(r.s.pc);g.fillStyle=late>0?"#ff8f8f":"#3ee08f";g.textAlign="right";g.fillText("debería ir "+Math.round(r.s.pp)+"%"+(late>0?"  ·  "+late+(late===1?" pt atrás":" pts atrás"):""),x+CW-24,y+92);g.textAlign="left";
+   rr(x+28,y+104,CW-56,9,5,"rgba(255,255,255,.12)");rr(x+28,y+104,Math.max(6,(CW-56)*r.s.pc/100),9,5,col);
+   let yy=y+148;
+   if(!r.notas.length){g.fillStyle="rgba(255,255,255,.4)";g.font=`italic 500 17px ${F}`;g.fillText("Sin comentarios por ahora",x+28,yy+4)}
+   c.ls.forEach((n,k)=>{g.fillStyle="#ffd98a";g.font=`700 16px ${F}`;g.fillText(n.h,x+28,yy);yy+=22;g.fillStyle="rgba(255,255,255,.92)";g.font=`500 17px ${F}`;n.l.forEach((t,j)=>{g.fillText(t+(j===n.l.length-1&&n.cut?"…":""),x+28,yy+2);yy+=23});yy+=10});
+   if(r.notas.length>MAXN){g.fillStyle="rgba(255,255,255,.55)";g.font=`600 16px ${F}`;g.fillText("+ "+(r.notas.length-MAXN)+" comentarios más en el tablero",x+28,yy+4)}});
+  y+=rh+GAP});
+ g.fillStyle="rgba(255,255,255,.4)";g.font=`500 16px ${F}`;g.fillText("Avance ponderado por valor · % real vs % que debería llevar a la fecha de corte",PAD,H-26);
+ return new Promise(res=>cv.toBlob(res))}
+async function loteEnviar(){
+ const R=loteResumen(),nC=R.reduce((s,r)=>s+r.notas.length,0);
+ let blob;try{blob=await loteCoverPng(R)}catch(e){toast("No pude generar la imagen: "+e.message,true);return}
+ const fname=`Lotes_de_control_${new Date().toISOString().slice(0,10)}.png`,fnameP=fname.replace(".png",".pdf");dlBlob(blob,fname);let pdf=null;try{pdf=await lotePdfGeneral();dlBlob(pdf,fnameP)}catch(e){toast("La imagen salió, pero no pude generar el PDF: "+e.message,true)}
+ const hoy=new Date().toLocaleDateString("es-CO",{day:"numeric",month:"long",year:"numeric"}),yo=CL.user!=="Alguien"?CL.user:"";
+ const asunto=`PTAP La Ayurá Fase I – Seguimiento de lotes de control – ${hoy}`;
+ const cuerpo=`Cordial saludo, equipo de Interventoría.\n\nLes informamos que cambiamos el nombre del módulo «Lotes de trabajo»: ahora se llama «Lotes de control».\n\nAdjuntamos la carátula y el PDF del seguimiento que hicimos el día de hoy (${hoy}), con el avance de cada lote y los comentarios que hemos ido registrando, para que lo revisemos juntos.\n\nQuedamos atentos a sus observaciones.\n\nCordialmente,\n${yo}\nEPM – Supervisión PTAP La Ayurá Fase I`;
+ const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;z-index:99;background:rgba(3,10,20,.65);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto";
+ d.innerHTML=`<div class="glass" style="max-width:640px;width:100%;padding:24px;border-radius:24px"><div style="font-size:1.15rem;font-weight:800">Enviar a la interventoría</div>
+ <div class="n" style="margin:6px 0 12px;line-height:1.45">✅ Ya se descargaron la carátula (<b>${fname}</b>) y ${pdf?`el PDF con los comentarios (<b>${fnameP}</b>)`:"(el PDF no se pudo generar)"}. Son ${R.length} lotes y ${nC} ${nC===1?"comentario":"comentarios"}. Al abrir el correo, adjúntalos (el navegador no puede adjuntar solo).</div>
+ <div class="l tl">ASUNTO</div><input class="inp" id="mlS" style="width:100%;margin:4px 0 10px" value="${esc(asunto)}">
+ <div class="l tl">MENSAJE (puedes editarlo)</div><textarea class="inp" id="mlB" style="width:100%;height:230px;margin-top:4px;resize:vertical">${esc(cuerpo)}</textarea>
+ <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px"><button class="btn" id="mlX">Cerrar</button><button class="btn" id="mlI">Descargar de nuevo</button><button class="btn" id="mlC">Copiar texto</button><button class="btn pri" id="mlM">Abrir en mi correo</button></div></div>`;
+ document.body.appendChild(d);d.onclick=e=>{if(e.target===d)d.remove()};
+ d.querySelector("#mlX").onclick=()=>d.remove();d.querySelector("#mlI").onclick=()=>{dlBlob(blob,fname);if(pdf)dlBlob(pdf,fnameP)};
+ d.querySelector("#mlC").onclick=()=>copyText("Asunto: "+d.querySelector("#mlS").value+"\n\n"+d.querySelector("#mlB").value);
+ d.querySelector("#mlM").onclick=()=>{location.href="mailto:?subject="+encodeURIComponent(d.querySelector("#mlS").value)+"&body="+encodeURIComponent(d.querySelector("#mlB").value);logBit("Envío a interventoría","Carátula de lotes de control "+hoy+" · "+nC+" comentarios")};
+ logBit("Carátula de lotes generada",hoy+" · "+nC+" comentarios")}
+
+/* ===== Lotes de control: ruta/tramo, actividades manuales, imagen y PDF ===== */
+const ACR=new Set(["mh","cl","scada","ccm","plc","hmi","rtu","pvc","hdpe","oc","im","ie","icc","ptap","bim","cmp","ip"]);
+const pretty=n=>{const s=String(n).trim().replace(/\s+/g," ").toLowerCase().split(" ").map(w=>(/\d/.test(w)||ACR.has(w.replace(/[^a-z]/g,"")))?w.toUpperCase():w).join(" ");return s.charAt(0).toUpperCase()+s.slice(1)};
+let _BYW=null,_BYWT=null;
+function byW(){if(_BYWT!==T){_BYW={};T.forEach(t=>_BYW[t.w]=t);_BYWT=T}return _BYW}
+function rutaOf(t){if(t.man)return t.ruta||"";const p=t.w.split("."),B=byW(),out=[];for(let i=5;i<p.length;i++){const a=B[p.slice(0,i).join(".")];if(a)out.push(pretty(a.n))}return out.slice(-2).join(" › ")}
+const rutaTag=t=>{const r=rutaOf(t);return r?`<div class="rt">📍 ${esc(r)}</div>`:""};
+const estLbl=t=>({ok:"Terminada",late:"Atrasada",run:"En curso",fut:"Por iniciar"})[estado(t)]||"";
+/* --- actividades manuales --- */
+let XA=[],XA_ERR="";try{XA=JSON.parse(localStorage.getItem("ayura_xa_v1")||"[]")}catch(e){}
+const xaLocal=()=>{try{localStorage.setItem("ayura_xa_v1",JSON.stringify(XA))}catch(e){}};
+const xaRow=x=>({id:x.id,lote:x.lote,esp:x.esp,nombre:x.n,ruta:x.ruta||"",ini:x.s,fin:x.f,pc:x.pc,autor:CL.user,updated_at:new Date().toISOString()});
+const xaFrom=r=>({id:r.id,lote:r.lote,esp:r.esp,n:r.nombre,ruta:r.ruta||"",s:r.ini,f:r.fin,pc:+r.pc||0});
+function xaTasks(gid,esp){return XA.filter(x=>x.lote===gid&&x.esp===esp).map(x=>({id:"X"+x.id,w:"MAN-"+x.id,n:x.n,s:x.s,f:x.f,pc:x.pc+"%",ca:0,man:true,ruta:x.ruta,xid:x.id}))}
+function xaPut(x,nuevo){const i=XA.findIndex(y=>y.id===x.id);if(i>=0)XA[i]=x;else XA.push(x);xaLocal();if(CL.on){if(XA_ERR)toast("Falta crear la tabla act_extra en Supabase: esta actividad solo se guardó en este navegador.",true);else cUp("act_extra",[xaRow(x)],"actividad manual")}
+ if(nuevo)logBit("Actividad agregada",`${FRG.find(g=>g.id===x.lote).t} · ${x.esp}: «${x.n}» ${fd(x.s)} a ${fd(x.f)} · ${x.pc}%`)}
+function xaForm(x,g,esp){const nuevo=!x;x=x||{id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),lote:g.id,esp,n:"",ruta:"",s:TODAY,f:TODAY,pc:0};
+ const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;z-index:99;background:rgba(3,10,20,.65);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto";
+ d.innerHTML=`<div class="glass" style="max-width:520px;width:100%;padding:24px;border-radius:24px"><div style="font-size:1.15rem;font-weight:800">${nuevo?"Agregar actividad":"Editar actividad"}</div><div class="n" style="margin:4px 0 12px">Para actividades que se deben cumplir pero no están en el cronograma. ${FRG.find(f=>f.id===x.lote).t} · ${x.esp}. No pesa en el % del lote.</div>
+ <div class="l tl">ACTIVIDAD</div><input class="inp" id="xaN" style="width:100%;margin:4px 0 10px" placeholder="Ej: Montaje de bomba P-12" value="${esc(x.n)}">
+ <div class="l tl">¿DE QUÉ TRAMO O SUBCAPÍTULO? (opcional)</div><input class="inp" id="xaR" style="width:100%;margin:4px 0 10px" placeholder="Ej: Tubería principal › Tramo J03-J04" value="${esc(x.ruta)}">
+ <div style="display:flex;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:140px"><div class="l tl">INICIO (ESTIMADO)</div><input type="date" class="inp" id="xaS" style="width:100%;margin-top:4px" value="${x.s}"></div><div style="flex:1;min-width:140px"><div class="l tl">FIN (ESTIMADO)</div><input type="date" class="inp" id="xaF" style="width:100%;margin-top:4px" value="${x.f}"></div><div style="width:110px"><div class="l tl">AVANCE %</div><input type="number" min="0" max="100" class="inp" id="xaP" style="width:100%;margin-top:4px" value="${x.pc}"></div></div>
+ <div id="xaE" style="color:#ff9a9a;font-size:.88rem;min-height:20px;margin-top:8px"></div>
+ <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px"><button class="btn" id="xaX">Cancelar</button><button class="btn pri" id="xaG">${nuevo?"Agregar":"Guardar"}</button></div></div>`;
+ document.body.appendChild(d);d.querySelector("#xaN").focus();d.onclick=e=>{if(e.target===d)d.remove()};d.querySelector("#xaX").onclick=()=>d.remove();
+ d.querySelector("#xaG").onclick=()=>{const n=d.querySelector("#xaN").value.trim(),s=d.querySelector("#xaS").value,f=d.querySelector("#xaF").value,p=Math.max(0,Math.min(100,Math.round(+d.querySelector("#xaP").value||0))),E=d.querySelector("#xaE");
+  if(!n){E.textContent="Escribe el nombre de la actividad.";return}if(!s||!f){E.textContent="Pon las fechas de inicio y fin.";return}if(f<s){E.textContent="La fecha fin no puede ser anterior al inicio.";return}
+  xaPut({...x,n,ruta:d.querySelector("#xaR").value.trim(),s,f,pc:p},nuevo);d.remove();render()}}
+function xaBtns(t){return `<div class="xab"><input type="number" min="0" max="100" class="inp xpin" data-xid="${t.xid}" value="${pcN(t)}" title="Avance %" style="width:68px"><span class="n">%</span><button class="mini" data-xe="${t.xid}">Editar</button><button class="mini" data-xd="${t.xid}">Quitar</button><span class="manb">➕ MANUAL</span></div>`}
+function xaWire(g){document.querySelectorAll(".xpin").forEach(i=>i.onchange=()=>{const x=XA.find(y=>y.id===i.dataset.xid);if(!x)return;x.pc=Math.max(0,Math.min(100,Math.round(+i.value||0)));xaPut(x,false);render()});
+ document.querySelectorAll("[data-xe]").forEach(b=>b.onclick=()=>xaForm(XA.find(y=>y.id===b.dataset.xe),g,FRE_S));
+ document.querySelectorAll("[data-xd]").forEach(b=>b.onclick=()=>{const x=XA.find(y=>y.id===b.dataset.xd);uiAsk(`¿Quitar la actividad «${esc(x.n)}»? Sus comentarios también dejan de verse.`,{ok:"Sí, quitar",danger:true},()=>{XA=XA.filter(y=>y.id!==x.id);xaLocal();if(CL.on&&!XA_ERR)cDel("act_extra","id",x.id,"actividad manual");logBit("Actividad quitada",`${g.t} · ${x.esp}: «${x.n}»`);render()})})}
+/* --- PDF --- */
+const JSPDF="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",JSPDFAT="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js";
+async function pdfLibs(){await loadLib(JSPDF,()=>window.jspdf);await loadLib(JSPDFAT,()=>window.jspdf&&window.jspdf.jsPDF&&window.jspdf.jsPDF.API&&window.jspdf.jsPDF.API.autoTable)}
+const pdfRow=(t,NT)=>[t.man?"Manual":t.w,rutaOf(t),t.n,fd(t.s)+" a "+fd(t.f),pcN(t)+"%",ppOf(t)+"%",estLbl(t),(NT[t.w]&&NT[t.w].t||"").trim()];
+async function lotePdf(secs,o){
+ await pdfLibs();const {jsPDF}=window.jspdf,doc=new jsPDF({orientation:"landscape",unit:"pt",format:"a4"}),PW=doc.internal.pageSize.getWidth(),NT=notasGet();
+ const hoy=new Date().toLocaleDateString("es-CO",{day:"numeric",month:"long",year:"numeric"});
+ doc.setFillColor(11,37,71);doc.rect(0,0,PW,78,"F");doc.setTextColor(255);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text("PTAP LA AYURA · FASE I · SEGUIMIENTO",36,26);doc.setFontSize(21);doc.text(o.title,36,52);doc.setFont("helvetica","normal");doc.setFontSize(10);doc.text(`Corte del cronograma: ${fd(CORTE)}   ·   Seguimiento del ${hoy}${o.sub?"   ·   "+o.sub:""}`,36,69);
+ let y=100;
+ secs.forEach((s,i)=>{
+  doc.setTextColor(20,40,70);doc.setFont("helvetica","bold");doc.setFontSize(13);doc.text(s.title,36,y);
+  if(s.stats){doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(90,100,115);doc.text(s.stats,36,y+15)}
+  const body=s.rows.length?s.rows:[["","","Sin actividades para mostrar","","","","",""]];
+  doc.autoTable({startY:y+(s.stats?24:12),head:[["EDT","Ruta / tramo","Actividad","Fechas","Va","Deberia","Estado","Comentario"]],body,theme:"grid",margin:{left:36,right:36},
+   styles:{font:"helvetica",fontSize:8,cellPadding:3.5,valign:"top",lineColor:[215,222,232]},headStyles:{fillColor:[18,58,99],textColor:255,fontSize:8.5},alternateRowStyles:{fillColor:[245,248,252]},
+   columnStyles:{0:{cellWidth:58},1:{cellWidth:100},2:{cellWidth:150},3:{cellWidth:78},4:{cellWidth:32,halign:"center"},5:{cellWidth:40,halign:"center"},6:{cellWidth:48},7:{cellWidth:"auto"}},
+   didParseCell:d=>{if(d.section==="body"){const e=d.row.raw[6];if(d.column.index===6){if(e==="Atrasada")d.cell.styles.textColor=[200,40,40];else if(e==="Terminada")d.cell.styles.textColor=[20,140,80]}if(d.column.index===7&&d.cell.raw)d.cell.styles.fontStyle="italic"}}});
+  y=doc.lastAutoTable.finalY+26;if(y>doc.internal.pageSize.getHeight()-140&&i<secs.length-1){doc.addPage();y=50}});
+ const n=doc.internal.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor(130);doc.text(`Pagina ${i} de ${n}`,PW-36,doc.internal.pageSize.getHeight()-18,{align:"right"})}
+ return doc.output("blob")}
+function lotePdfLista(g,esp,list){const NT=notasGet(),s=freStats(list.filter(t=>!t.man));return lotePdf([{title:g.t+" · "+esp,stats:`${Math.round(s.pc)}% de avance · debería ir ${Math.round(s.pp)}% · ${list.length} actividades en esta lista`,rows:list.map(t=>pdfRow(t,NT))}],{title:"Lotes de control · "+g.t,sub:esp})}
+function lotePdfGeneral(){const NT=notasGet(),secs=FRG.map(g=>{const l=freLeaves(g,false);if(!l.length)return null;const s=freStats(l),man=XA.filter(x=>x.lote===g.id).flatMap(x=>xaTasks(g.id,x.esp).filter(t=>t.xid===x.id)),conN=l.filter(t=>NT[t.w]&&NT[t.w].t&&NT[t.w].t.trim()),late=l.filter(t=>estado(t)==="late").length;
+ return {title:g.t,stats:`${Math.round(s.pc)}% de avance · debería ir ${Math.round(s.pp)}% · ${late} actividades atrasadas · ${conN.length} con comentario${man.length?" · "+man.length+" manuales":""}`,rows:conN.concat(man).sort((a,b)=>a.w<b.w?-1:1).map(t=>pdfRow(t,NT))}}).filter(Boolean);
+ return lotePdf(secs,{title:"Lotes de control · resumen general",sub:"actividades con comentario y manuales"})}
+/* --- imagen de una lista --- */
+function listaPng(g,esp,list){const NT=notasGet(),W=1400,PAD=44,S=2,F="-apple-system,Segoe UI,Inter,Arial,sans-serif",m=document.createElement("canvas").getContext("2d");
+ const wrap=(txt,font,max)=>{m.font=font;const out=[];let l="";for(const w of String(txt).replace(/\s+/g," ").split(" ")){const t=l?l+" "+w:w;if(m.measureText(t).width>max&&l){out.push(l);l=w}else l=t}if(l)out.push(l);return out};
+ const items=list.slice().sort((a,b)=>(NT[b.w]?1:0)-(NT[a.w]?1:0)||(estado(a)==="late"?0:1)-(estado(b)==="late"?0:1)).slice(0,14);
+ const cards=items.map(t=>{const nl=wrap((NT[t.w]&&NT[t.w].t)||"",`500 18px ${F}`,W-PAD*2-48).slice(0,3);return {t,nl,h:94+(rutaOf(t)?22:0)+nl.length*25}});
+ const H=210+cards.reduce((s,c)=>s+c.h+14,0)+(list.length>14?40:0)+50,cv=document.createElement("canvas");cv.width=W*S;cv.height=H*S;const c=cv.getContext("2d");c.scale(S,S);
+ const gr=c.createLinearGradient(0,0,W,H);gr.addColorStop(0,"#0b2547");gr.addColorStop(1,"#0a1730");c.fillStyle=gr;c.fillRect(0,0,W,H);
+ const rr=(x,y,w,h,r,f)=>{c.beginPath();c.roundRect(x,y,w,h,r);c.fillStyle=f;c.fill()},s=freStats(list.filter(t=>!t.man));
+ c.fillStyle="rgba(255,255,255,.55)";c.font=`700 20px ${F}`;c.fillText("PTAP LA AYURÁ · FASE I · LOTES DE CONTROL",PAD,56);
+ rr(PAD,76,12,56,5,g.c);c.fillStyle="#fff";c.font=`800 50px ${F}`;c.fillText(g.t+" · "+esp,PAD+28,122);
+ c.fillStyle="rgba(255,255,255,.75)";c.font=`500 22px ${F}`;c.fillText(`${Math.round(s.pc)}% de avance · debería ir ${Math.round(s.pp)}% · corte ${fd(CORTE)} · ${list.length} actividades en la lista`,PAD,170);
+ let y=200;cards.forEach(({t,nl,h})=>{rr(PAD,y,W-PAD*2,h,18,"rgba(255,255,255,.08)");const late=estado(t)==="late";rr(PAD,y,7,h,3,late?"#ff6f6f":estado(t)==="ok"?"#3ee08f":"#62cbff");let yy=y+32;
+  if(rutaOf(t)){c.fillStyle="#9fd8ff";c.font=`700 16px ${F}`;c.fillText("📍 "+rutaOf(t),PAD+26,yy);yy+=24}
+  c.fillStyle="#fff";c.font=`700 22px ${F}`;let n=t.n;while(c.measureText(n).width>W-PAD*2-420&&n.length>8)n=n.slice(0,-2);if(n!==t.n)n+="…";c.fillText(n+(t.man?"  (manual)":""),PAD+26,yy);
+  c.textAlign="right";c.fillStyle=late?"#ff9a9a":"#3ee08f";c.font=`700 20px ${F}`;c.fillText(`va ${pcN(t)}% · debería ${ppOf(t)}%`,W-PAD-24,yy);c.textAlign="left";yy+=24;
+  c.fillStyle="rgba(255,255,255,.55)";c.font=`500 15px ${F}`;c.fillText((t.man?"Manual":t.w)+" · "+fd(t.s)+" a "+fd(t.f)+" · "+estLbl(t),PAD+26,yy);yy+=26;
+  c.fillStyle="rgba(255,255,255,.92)";c.font=`500 18px ${F}`;nl.forEach(l=>{c.fillText(l,PAD+26,yy);yy+=25});y+=h+14});
+ if(list.length>14){c.fillStyle="rgba(255,255,255,.55)";c.font=`600 17px ${F}`;c.fillText(`… y ${list.length-14} actividades más en el tablero`,PAD,y+24)}
+ c.fillStyle="rgba(255,255,255,.4)";c.font=`500 15px ${F}`;c.fillText("Avance ponderado por valor · primero las actividades con comentario y las atrasadas",PAD,H-24);
+ return new Promise(res=>cv.toBlob(res))}
+
 function freView(){
  const g=FRG.find(x=>x.id===FRE_F);
  if(!g){
-  $("view").innerHTML=`<div class="bar"><button class="btn" id="back">← Módulos</button><h2>Lotes de trabajo</h2></div>
+  $("view").innerHTML=`<div class="bar"><button class="btn" id="back">← Módulos</button><h2>Lotes de control</h2><div class="sp"></div><button class="btn pri" id="lmail">✉ Enviar a interventoría</button></div>
   <div class="tiles" style="margin-top:18px">${freTiles(FRG,false,true)}</div>`;
-  $("back").onclick=()=>{VIEW="home";render()};
+  $("back").onclick=()=>{VIEW="home";render()};$("lmail").onclick=loteEnviar;
   document.querySelectorAll(".tile[data-f]").forEach(b=>b.onclick=()=>{FRE_F=b.dataset.f;const f=FRG.find(x=>x.id===FRE_F);FRE_S=null;FRE_SUB="all";freReset();render()});return}
  let L=freLeaves(g,false);if(g.sub&&FRE_SUB!=="all")L=L.filter(t=>t.w.startsWith(FRE_SUB+"."));
  const subBar=g.sub?`<div class="frow">${[["all","Todo"]].concat(Object.entries(g.sub)).map(([k,n])=>`<button class="fchip ${FRE_SUB===k?"on":""}" data-sub="${k}">${n}</button>`).join("")}</div>`:"";
  const bindSub=()=>document.querySelectorAll(".fchip[data-sub]").forEach(b=>b.onclick=()=>{FRE_SUB=b.dataset.sub;freReset();render()});
  if(!FRE_S){
   const gr=SPN.concat(["Transversal"]).map(s=>({s,l:L.filter(t=>specOf(t)===s)})).filter(x=>x.l.length);
-  $("view").innerHTML=`<div class="bar"><button class="btn" id="back2">← Lotes de trabajo</button><h2>${g.t}</h2></div>
+  $("view").innerHTML=`<div class="bar"><button class="btn" id="back2">← Lotes de control</button><h2>${g.t}</h2></div>
   <div class="tiles">${gr.map(x=>{const s=freStats(x.l);return `<button class="tile glass spbtn" data-s="${x.s}" style="--sc:${SPC[x.s]}"><div><h3 class="spname">${x.s}</h3><div style="font-size:3rem;font-weight:800;letter-spacing:-.03em;margin-top:6px">${Math.round(s.pc)}<small style="font-size:1.3rem">%</small></div><p>lleva · debería ir <b>${Math.round(s.pp)}%</b></p></div><div class="pb big" style="height:16px;flex:none"><b style="width:${s.pc}%"></b><i style="left:${s.pp}%"></i></div><p style="margin-top:8px">${s.ok} de ${s.n} terminadas${s.late?` · <b style="color:#ff8f8f">${s.late} atrasadas</b>`:""}</p></button>`}).join("")}</div>`;
   $("back2").onclick=()=>{FRE_F=null;render()};
   document.querySelectorAll(".tile[data-s]").forEach(b=>b.onclick=()=>{FRE_S=b.dataset.s;freReset();render()});return}
- const base=L.filter(t=>specOf(t)===FRE_S).sort((a,b)=>a.s<b.s?-1:a.s>b.s?1:a.w<b.w?-1:1),NT=notasGet();
+ const base=L.filter(t=>specOf(t)===FRE_S).concat(xaTasks(g.id,FRE_S)).sort((a,b)=>a.s<b.s?-1:a.s>b.s?1:a.w<b.w?-1:1),NT=notasGet();
  const q=nrm(FRE_Q.trim());
  const byCat=base.filter(t=>!FRE_CAT.size||FRE_CAT.has(fcat(t))).filter(t=>!q||nrm(t.n).includes(q)||t.w.includes(q));
  const byDate=byCat.filter(t=>(!FRE_D1||t.f>=FRE_D1)&&(!FRE_D2||t.s<=FRE_D2));
@@ -755,15 +885,19 @@ function freView(){
  const cnt=k=>byDate.filter(flt[k]).length;
  const cats={};base.forEach(t=>{const c=fcat(t);cats[c]=(cats[c]||0)+1});
  const back=g.t;
- $("view").innerHTML=`<div class="bar"><button class="btn" id="back3">← ${back}</button><h2>${g.own?g.t+" · ":g.t+" · "}${spChip(FRE_S).replace("sp-chip","sp-chip big")}</h2><div class="sp"></div><button class="btn" id="cpn">Copiar notas</button><button class="btn pri" id="fload">Cargar avance semanal</button></div>${subBar}
+ $("view").innerHTML=`<div class="bar"><button class="btn" id="back3">← ${back}</button><h2>${g.own?g.t+" · ":g.t+" · "}${spChip(FRE_S).replace("sp-chip","sp-chip big")}</h2><div class="sp"></div><button class="btn gr" id="lsave">Guardar</button><button class="btn" id="limg">Imagen</button><button class="btn" id="lpdf">PDF</button><button class="btn" id="cpn">Copiar notas</button><button class="btn pri" id="fload">Cargar avance semanal</button></div>${subBar}
  <div class="glass" style="padding:12px 18px;margin-top:12px"><div class="l tl">TIPO DE ACTIVIDAD</div><div class="frow" style="margin-top:8px">${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`<button class="fchip ${FRE_CAT.has(c)?"on":""}" data-cat="${esc(c)}">${esc(c)} · ${n}</button>`).join("")}${FRE_CAT.size?'<button class="fchip" id="catclr">✕ quitar</button>':""}</div>
  <div class="frow" style="margin-top:10px"><span class="n">Fechas</span><input type="date" id="d1" class="fdate" value="${FRE_D1}"><span class="n">a</span><input type="date" id="d2" class="fdate" value="${FRE_D2}"><button class="fchip" id="dmes">Este mes</button><button class="fchip" id="d30">Próx. 30 días</button><button class="fchip" id="dclr">Todas las fechas</button><input type="search" id="fq" class="fdate" style="flex:1;min-width:160px" placeholder="Buscar: CL05, MH12, J04…" value="${esc(FRE_Q)}"></div></div>
  ${sCurve(byCat)}
  <div class="frow">${[["pen","Pendientes"],["late","Atrasadas"],["ok","Terminadas"],["all","Todas"]].map(([k,n])=>`<button class="fchip ${FRE_ST===k?"on":""}" data-st="${k}">${n} · ${cnt(k)}</button>`).join("")}</div>
- <div class="glass states">${list.length?list.map(t=>{const n=NT[t.w];return `<div class="arow"><div class="an"><div class="at">${esc(t.n)}</div><div class="am">${t.w} · ${esc(fcat(t))}${g.sub?" · "+(g.sub[t.w.split(".").slice(0,3).join(".")]||""):""}</div></div><div class="ad">${fd(t.s)} → ${fd(t.f)}</div><div class="ap" style="min-width:210px;flex-wrap:wrap"><div class="pb"><b style="width:${pcN(t)}%"></b></div><span>va <b>${pcN(t)}%</b>${ppOf(t)>pcN(t)?` · <span style="color:#ff9a9a">debería ${ppOf(t)}%</span>`:""}</span></div>${stBadge(t)}</div>
+ <div class="glass states">${list.length?list.map(t=>{const n=NT[t.w];return `<div class="arow"><div class="an">${rutaTag(t)}<div class="at">${esc(t.n)}</div><div class="am">${t.man?"Actividad manual":t.w} · ${esc(fcat(t))}${g.sub?" · "+(g.sub[t.w.split(".").slice(0,3).join(".")]||""):""}</div></div><div class="ad">${fd(t.s)} → ${fd(t.f)}</div><div class="ap" style="min-width:210px;flex-wrap:wrap"><div class="pb"><b style="width:${pcN(t)}%"></b></div><span>va <b>${pcN(t)}%</b>${ppOf(t)>pcN(t)?` · <span style="color:#ff9a9a">debería ${ppOf(t)}%</span>`:""}</span></div>${stBadge(t)}${t.man?xaBtns(t):""}</div>
  <textarea class="fnota" data-w="${t.w}" rows="1" placeholder="¿Cómo va hoy? Escribe aquí el avance de esta actividad…">${n?esc(n.t):""}</textarea>${n?`<div class="fnd">Nota del ${fd(n.d)}</div>`:""}`}).join(""):'<div class="n">No hay actividades con estos filtros.</div>'}</div>
- <div class="foot">La curva cambia con el tipo de actividad y la búsqueda (no con las fechas ni el estado). Las notas se guardan en este navegador; usa «Copiar notas» para compartirlas.</div>`;
- $("back3").onclick=()=>{FRE_S=null;render()};bindSub();
+ <div style="margin-top:12px"><button class="btn" id="xadd">➕ Agregar actividad</button> <span class="n">Para lo que hay que cumplir y no está en el cronograma.</span></div><div class="foot">La curva cambia con el tipo de actividad y la búsqueda (no con las fechas ni el estado). Los comentarios se guardan solos y los ven todos los del equipo.</div>`;
+ $("back3").onclick=()=>{FRE_S=null;render()};bindSub();xaWire(g);
+  $("xadd").onclick=()=>xaForm(null,g,FRE_S);
+  $("lsave").onclick=()=>{const nn=list.filter(t=>NT[t.w]&&NT[t.w].t&&NT[t.w].t.trim()).length,nm=list.filter(t=>t.man).length;logBit("Seguimiento guardado",`${g.t} · ${FRE_S}: ${nn} comentarios, ${nm} actividades manuales`,()=>toast("Guardado ✔ Los comentarios ya están en la nube"))};
+  $("limg").onclick=async()=>{try{const b=await listaPng(g,FRE_S,list);dlBlob(b,`Lotes_de_control_${g.id}_${FRE_S}_${TODAY}.png`);logBit("Imagen de lote",`${g.t} · ${FRE_S}`);toast("Imagen descargada")}catch(e){toast("No pude generar la imagen: "+e.message,true)}};
+  $("lpdf").onclick=async()=>{toast("Generando PDF…");try{const b=await lotePdfLista(g,FRE_S,list);dlBlob(b,`Lotes_de_control_${g.id}_${FRE_S}_${TODAY}.pdf`);logBit("PDF de lote",`${g.t} · ${FRE_S} · ${list.length} actividades`);toast("PDF descargado")}catch(e){toast("No pude generar el PDF (¿hay internet?): "+e.message,true)}};
  $("fload").onclick=()=>$("file").click();
  document.querySelectorAll(".fchip[data-st]").forEach(b=>b.onclick=()=>{FRE_ST=b.dataset.st;render()});
  document.querySelectorAll(".fchip[data-cat]").forEach(b=>b.onclick=()=>{const c=b.dataset.cat;FRE_CAT.has(c)?FRE_CAT.delete(c):FRE_CAT.add(c);render()});
@@ -905,7 +1039,7 @@ let LASTV=null,SY=0;addEventListener('scroll',()=>{SY=scrollY},{passive:true});
 function render(){
  SY=scrollY;document.getElementById('app').classList.toggle('wide',VIEW==='cro');calcKF();
  $("corteChip").textContent="Corte "+fd(CORTE);
- $("sub").textContent=({home:"Tablero de control de obra",kpi:"Resumen general",esp:"Pendiente por especialidad",atr:"Atrasos y dependencias",cro:"Cronograma",pro:"Proyección",bus:"Buscador",bal:"Balance",fac:"Facturación",fre:"Lotes de trabajo",bit:"Bitácora"})[VIEW]||"";
+ $("sub").textContent=({home:"Tablero de control de obra",kpi:"Resumen general",esp:"Pendiente por especialidad",atr:"Atrasos y dependencias",cro:"Cronograma",pro:"Proyección",bus:"Buscador",bal:"Balance",fac:"Facturación",fre:"Lotes de control",bit:"Bitácora"})[VIEW]||"";
  $("foot").textContent="Avance real y programado: reportados por la interventoría. Curvas ponderadas por la duración de las actividades (aproximadas). Estados calculados al "+fd(TODAY)+".";
  ({kpi:kpi,esp:espView,atr:atrView,pro:proView,bus:busView,cro:()=>frameView("cro"),bal:balView,fac:facView,fre:freView,bit:bitView}[VIEW]||home)();const VK=VIEW+'|'+[ESPSEL,FRE_F,FRE_S,BSEL].join();if(LASTV!==VK){window.scrollTo(0,0);LASTV=VK}else{window.scrollTo(0,SY)}}
 
@@ -973,6 +1107,8 @@ async function cloudLoad(){
  PL={};PLS={};p.data.forEach(r=>{const o={};if(r.x)o.x=true;if(r.m)o.m=r.m;PL[r.id]=o;PLS[r.id]=JSON.stringify({x:!!r.x,m:r.m||null})});
  PMETA={};METAS={};m.data.forEach(r=>{PMETA[r.mes]=+r.valor;METAS[r.mes]=+r.valor});
  BIT=b.data.map(r=>({id:r.id,t:r.t,u:r.usuario,tipo:r.tipo,det:r.detalle})).reverse();
+
+ try{const x=await SB.from("act_extra").select("*");if(x.error)throw x.error;XA=x.data.map(xaFrom);xaLocal();XA_ERR=""}catch(e){XA_ERR=e.message||"error";console.warn("act_extra",e)}
  CLH=new Set(h.data.map(r=>r.datos&&r.datos.corte));h.data.forEach(r=>{const e=r.datos;if(e&&e.corte&&!HIST.some(x=>x.corte===e.corte))HIST.push(e);else if(e){const i=HIST.findIndex(x=>x.corte===e.corte);HIST[i]=e}});HIST.sort((x,y)=>x.corte<y.corte?-1:1);
  if(a.data&&a.data[0]&&a.data[0].corte>=CORTE)applyAvance(a.data[0])}
 let _srT=null;
@@ -983,6 +1119,7 @@ function cloudEvt(p){const t=p.table,r=p.new&&Object.keys(p.new).length?p.new:p.
  else if(t==="meta"){if(!del){PMETA[r.mes]=+r.valor;METAS[r.mes]=+r.valor}}
  else if(t==="bitacora"){if(!del&&!BIT.some(b=>b.id===r.id))BIT.push({id:r.id,t:r.t,u:r.usuario,tipo:r.tipo,det:r.detalle})}
  else if(t==="historial"){const e=r.datos;if(e&&e.corte){const i=HIST.findIndex(x=>x.corte===e.corte);if(i>=0)HIST[i]=e;else HIST.push(e);HIST.sort((x,y)=>x.corte<y.corte?-1:1)}}
+ else if(t==="act_extra"){if(del)XA=XA.filter(x=>x.id!==r.id);else{const x=xaFrom(r),i=XA.findIndex(y=>y.id===x.id);if(i>=0)XA[i]=x;else XA.push(x)}xaLocal()}
  else if(t==="avance"){if(r.usuario!==CL.user&&r.corte>=CORTE){applyAvance(r);toast(`${r.usuario||"Alguien"} cargó el avance del corte ${fd(r.corte)}`)}else return}
  softRender()}
 function cloudSubscribe(){try{SB.channel("ayura").on("postgres_changes",{event:"*",schema:"public"},cloudEvt).subscribe()}catch(e){console.warn("realtime",e)}}
