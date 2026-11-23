@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta http-equiv="Cache-Control" content="no-cache, must-revalidate"><meta name="ayura-build" content="20261123093803">
+<html lang="es"><head><meta charset="utf-8"><meta http-equiv="Cache-Control" content="no-cache, must-revalidate"><meta name="ayura-build" content="20261123102103">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tablero PTAP La Ayurá · Fase I</title>
 <style>
@@ -322,7 +322,9 @@ function specOf(t){if(SPOV[t.w])return SPOV[t.w];if(t.w.startsWith("1.3.9."))ret
  const p=t.w.split(".");if(p[0]==="1"&&p[1]==="3"&&p[2]==="9")return"Instrumentación";if(p[0]==="1"&&p[1]==="3"&&p.length>=4)return({1:"Civil",2:"Mecánico",3:"Eléctrico",4:"Instrumentación"})[p[3]]||"Transversal";return"Transversal"}
 function leaves(){const seen=new Set(),o=[];for(const t of T){if(t.id===0||t.S||seen.has(t.id))continue;seen.add(t.id);o.push(t)}return o}
 let KF=1,KP45=1,KP44=1;
-const pend=t=>(t.ca||0)*(1-pcN(t)/100)*KF;
+const mval=t=>VIEW==="pro"&&typeof PMETA!=="undefined"?(+PMETA["val:"+t.id]||0):0;
+const valT=t=>t.ca?t.ca*KF:mval(t);
+const pend=t=>t.ca?t.ca*(1-pcN(t)/100)*KF:mval(t)*(1-pcN(t)/100);
 function calcKF(){const root=T[1],bac=root.ca||0,real=pcN(root),dC=D(CORTE);let raw=0,p45=0,p44=0;
  for(const t of leaves()){const c=t.ca||0;if(!c)continue;raw+=c*(1-pcN(t)/100);p45+=c*prog(D(t.s),D(t.f),dC);if(t.b)p44+=c*prog(D(t.b[1]),D(t.b[2]),dC)}
  KF=raw>0?Math.max(0,bac*(1-real/100))/raw:1;
@@ -495,6 +497,19 @@ function parAsk(t,cur,cb){const pd=pend(t);
  i.oninput=upd;upd();setTimeout(()=>i.focus(),50);
  const ok=()=>{const v=parseParcial(i.value,pd);if(isNaN(v)||v<0){toast("Escribe un porcentaje o un valor en millones",true);return}d.remove();cb(v)};
  d.querySelector("#parY").onclick=ok;d.querySelector("#parN").onclick=()=>d.remove();i.onkeydown=e=>{if(e.key==="Enter")ok()}}
+/* ===== valor manual para actividades sin valor ===== */
+function valAsk(t){const key="val:"+t.id,cur=+PMETA[key]||0,p=pcN(t),pv=q=>{q=String(q||"").trim();return !q||q.endsWith("%")?NaN:parseParcial(q,0)};
+ const d=modalBox(`<div style="font-size:1.1rem;font-weight:700">Valor de la actividad</div><div class="n" style="margin-top:6px;line-height:1.45">${esc(t.n)}<br>En el cronograma no tiene valor. Avance actual: <b>${p}%</b></div>
+ <input class="inp" id="valI" style="margin-top:14px;width:100%" placeholder="Valor total en millones (ej. 25 o 25,5)" value="${cur?String(Math.round(cur/1e4)/100).replace(".",","):""}">
+ <div id="valP" class="n" style="margin-top:10px;min-height:38px"></div>
+ <div class="n" style="margin-top:6px">Queda guardado para todo el equipo y se usa solo en Proyección; las cifras de la interventoría no cambian.</div>
+ <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap"><button class="btn" id="valN">Cancelar</button>${cur?'<button class="btn" id="valQ" style="border-color:#ff8f8f;color:#ff8f8f">Quitar valor</button>':""}<button class="btn gr" id="valY">Guardar</button></div>`);
+ const i=d.querySelector("#valI"),o=d.querySelector("#valP");
+ const upd=()=>{const v=pv(i.value);o.innerHTML=isNaN(v)||v<=0?(i.value?"Escribe el valor en millones":""):`Valor total <b>${M$d(v)}</b> · ejecutado ${p}% = ${M$d(v*p/100)} · falta <b>${M$d(v*(1-p/100))}</b>`};
+ i.oninput=upd;upd();setTimeout(()=>i.focus(),50);
+ const save=(v,msg)=>{d.remove();PMETA[key]=v;PSAVED="";savePL();logBit("Valor manual",`${t.w} ${t.n}: ${v?M$d(v):"se quitó el valor"}`,()=>{render();toast(msg)})};
+ const ok=()=>{const v=pv(i.value);if(isNaN(v)||v<=0){toast("Escribe el valor en millones",true);return}save(Math.round(v),"Valor guardado")};
+ d.querySelector("#valY").onclick=ok;d.querySelector("#valN").onclick=()=>d.remove();if(d.querySelector("#valQ"))d.querySelector("#valQ").onclick=()=>save(0,"Valor quitado");i.onkeydown=e=>{if(e.key==="Enter")ok()}}
 /* ===== Excel de Proyección: escoger qué guardar ===== */
 function proXlsxAsk(o){const pm=o.mons.includes(PMON)?PMON:o.mons[0],hasAnt=o.fs.some(k=>o.ant(k)>0);
  const tot=m=>o.fs.reduce((a,k)=>a+o.v(k,m),0);
@@ -580,7 +595,7 @@ const monthsBack=(m0,n)=>{let[y,m]=m0.split("-").map(Number);const a=[];for(let 
 function proCtx(){
  const mons=monthsFrom(),prevs=monthsBack(mons[0],4);if(!PMON||!(mons.includes(PMON)||prevs.includes(PMON)))PMON=mons[0];
  const mEnd=(()=>{const[y,m]=PMON.split("-").map(Number);return new Date(y,m,0).getTime()})(),mStart=D(PMON+"-01");
- const base=leaves().filter(t=>pcN(t)<100&&(t.ca>0||(PL[t.id]&&PL[t.id].m)));
+ const base=leaves().filter(t=>pcN(t)<100&&(valT(t)>0||(PL[t.id]&&PL[t.id].m)));
  const fil=t=>(PSP==="*"||specOf(t)===PSP)&&(PFR==="*"||frOf(t)===PFR)&&(!PQ||nrm(t.n+" "+t.w).includes(nrm(PQ)));
  const delMes=base.filter(t=>monthOf(t)===PMON);
  const hist=leaves().filter(t=>defMonth(t)===PMON),histAct=leaves().filter(t=>D(t.s)<=mEnd&&D(t.f)>=mStart);
@@ -598,7 +613,7 @@ function proView(){
  const filNoSp=t=>(PFR==="*"||frOf(t)===PFR)&&(!PQ||nrm(t.n+" "+t.w).includes(nrm(PQ))),spTot=s=>base.filter(t=>filNoSp(t)&&(s==="*"||specOf(t)===s)).reduce((a,t)=>a+pend(t),0);
  let list=baseL.filter(fil).filter(t=>!isPast||PHF==="todas"||(PHF==="ok"?okT(t):!okT(t))).sort(isPast?(a,b)=>((okT(a)?1:0)-(okT(b)?1:0))||(b.ca-a.ca):(a,b)=>pend(b)-pend(a));if(PTAB==="buscar"&&!PQ)list=[];
  const bulk=isPast?list.filter(t=>canB(t)&&!isMoved(t)):[],sumB=bulk.reduce((a,t)=>a+pend(t),0);
- const sumL=isPast?list.reduce((a,t)=>a+t.ca*KF,0):list.reduce((a,t)=>a+pend(t),0);
+ const sumL=isPast?list.reduce((a,t)=>a+valT(t),0):list.reduce((a,t)=>a+pend(t),0);
  const dm=delMes.filter(spOnly);
  const sumMes=dm.reduce((s,t)=>s+pend(t),0),exe=dm.reduce((s,t)=>s+exeOf(t),0);
  const meta=PMETA[PMON]!=null?PMETA[PMON]:4000;const pct=meta?Math.min(100,exe/1e6/meta*100):0;
@@ -617,16 +632,17 @@ function proView(){
  const mat=`<div class="pmx glass states"><button class="pmx-h" id="pmxT"><span><span class="l tl" style="display:block">FRENTES POR MES · ${scopeName.toUpperCase()}</span><span class="n">Cuánto se proyecta en cada frente, mes a mes (millones). Toca un frente o una casilla para filtrar.</span></span><span class="pmx-c">${PMX?"Ocultar ▲":"Ver ▼"}</span></button>
  ${PMX?`<div style="overflow:auto;margin-top:10px"><table style="--rgb:${col}"><thead><tr><th class="fh">Frente</th><th class="late" title="Con fecha anterior a este mes y sin terminar">Atrasadas</th>${mons.map(m=>`<th class="${m===PMON?"on":""}">${mLabel(m)}</th>`).join("")}<th>Total</th></tr></thead><tbody>${fs.map(k=>{const tot=ant(k)+mons.reduce((a,m)=>a+v(k,m),0);return `<tr class="${PFR===k?"on":""}"><td class="fn" data-pf="${k}">${frName(k)}</td><td class="late" data-pf="${k}">${c(ant(k))}</td>${mons.map(m=>cell(k,m)).join("")}<td class="tot">${c(tot)}</td></tr>`}).join("")}<tr class="tt"><td class="fn" data-pf="*">Todos los frentes</td><td class="late" data-pf="*">${c(ant("*"))}</td>${mons.map(m=>`<td class="tot" data-pf="*" data-pm="${m}">${c(tm(m))}</td>`).join("")}<td class="tot">${c(ant("*")+mons.reduce((a,m)=>a+tm(m),0))}</td></tr></tbody></table></div>`:""}</div>`;
  const row=t=>{const x=planOf(t).x,mv=isMoved(t),par=isPar(t),low=pend(t)<1.5e6;
-  return `<div class="prow ${x?"done":""} ${mv?"moved":""}" data-id="${t.id}"><div class="an"><div class="at">${esc(t.n)}${mv?` <span class="mvtag">↪ desplazada · era de ${mLabel(defMonth(t))}</span>`:""}${par?` <span class="partag">Parcial · ${Math.round(planOf(t).v/pend(t)*100)}% · ejecuta ${M$d(planOf(t).v)} · faltan ${M$d(pend(t)-planOf(t).v)}</span>`:""}${low?` <span class="lowtag" title="En el cronograma esta actividad tiene un valor muy bajo">${t.ca?"valor bajo":"sin valor"}</span>`:""}</div><div class="am">${t.w} · ${frName(frOf(t))} · ${spChip(specOf(t))} · ${fd(t.s)} → ${fd(t.f)} · ${pcN(t)}%${PTAB!=="mes"?" · mes: "+mLabel(monthOf(t)):""}</div></div>
+  return `<div class="prow ${x?"done":""} ${mv?"moved":""}" data-id="${t.id}"><div class="an"><div class="at">${esc(t.n)}${mv?` <span class="mvtag">↪ desplazada · era de ${mLabel(defMonth(t))}</span>`:""}${par?` <span class="partag">Parcial · ${Math.round(planOf(t).v/pend(t)*100)}% · ejecuta ${M$d(planOf(t).v)} · faltan ${M$d(pend(t)-planOf(t).v)}</span>`:""}${low||!t.ca?` <span class="lowtag" title="${t.ca?"En el cronograma esta actividad tiene un valor muy bajo":"En el cronograma no tiene valor"}">${t.ca?"valor bajo":(mval(t)?"valor manual":"sin valor")}</span>`:""}</div><div class="am">${t.w} · ${frName(frOf(t))} · ${spChip(specOf(t))} · ${fd(t.s)} → ${fd(t.f)} · ${pcN(t)}%${PTAB!=="mes"?" · mes: "+mLabel(monthOf(t)):""}</div></div>
   <div class="ap"><div class="pb"><b style="width:${pcN(t)}%"></b></div>${pcN(t)}%</div><div class="av" style="min-width:90px">${M$d(pend(t))}</div>
-  <div class="pbtn">${isPast?`<button class="mini g" data-a="traerA">Traer a ${mLabel(cur)}</button><select class="mini" data-a="mov"><option value="">Llevar a…</option>${mons.filter(m=>m!==PMON).map(m=>`<option value="${m}">→ ${mLabel(m)}</option>`).join("")}</select>${mv?`<button class="mini" data-a="back" title="Devolverla a su mes original">↩</button>`:""}`:PTAB!=="mes"?`<button class="mini g" data-a="traer">Traer a ${mLabel(PMON)}</button>`:`<button class="mini ${x&&!par?"g on":"g"}" data-a="exe">${par?"Completar":x?"✔ Ejecutada":"Ejecutar"}</button><button class="mini ${par?"g on":""}" data-a="par" title="Poner a mano cuánto se ejecuta este mes">Parcial</button>
+  <div class="pbtn">${isPast?`<button class="mini g" data-a="traerA">Traer a ${mLabel(cur)}</button><select class="mini" data-a="mov"><option value="">Llevar a…</option>${mons.filter(m=>m!==PMON).map(m=>`<option value="${m}">→ ${mLabel(m)}</option>`).join("")}</select>${mv?`<button class="mini" data-a="back" title="Devolverla a su mes original">↩</button>`:""}`:PTAB!=="mes"?`<button class="mini g" data-a="traer">Traer a ${mLabel(PMON)}</button>`:`${vbtn(t)}<button class="mini ${x&&!par?"g on":"g"}" data-a="exe">${par?"Completar":x?"✔ Ejecutada":"Ejecutar"}</button><button class="mini ${par?"g on":""}" data-a="par" title="Poner a mano cuánto se ejecuta este mes">Parcial</button>
   <select class="mini" data-a="mov"><option value="">Desplazar…</option>${mons.filter(m=>m!==PMON).map(m=>`<option value="${m}">→ ${mLabel(m)}</option>`).join("")}</select>${mv?`<button class="mini" data-a="back" title="Devolverla a su mes original">↩</button>`:""}`}</div></div>`};
- const rowP=t=>{const p=pcN(t),mv=isMoved(t),ok=okT(t),val=t.ca*KF;
+ const vbtn=t=>t.ca?"":`<button class="mini" data-a="val" title="En el cronograma no tiene valor: ponle uno a mano para poder proyectarla">${mval(t)>0?"✎ Valor":"Poner valor"}</button>`;
+ const rowP=t=>{const p=pcN(t),mv=isMoved(t),ok=okT(t),val=valT(t);
   const st=ok?`<span class="oktag">✔ Ejecutada 100%</span>`:p>0?`<span class="partag">En avance ${p}% · faltan ${M$d(pend(t))}</span>`:`<span class="notag">Sin avance</span>`;
-  return `<div class="prow ${ok?"done":""} ${mv?"moved":""}" data-id="${t.id}"><div class="an"><div class="at">${esc(t.n)} ${st}${t.ca?"":` <span class="lowtag" title="En el cronograma esta actividad no tiene costo asignado">sin valor</span>`}${mv?` <span class="mvtag">↪ ya traída a ${mLabel(monthOf(t))}</span>`:""}</div><div class="am">${t.w} · ${frName(frOf(t))} · ${spChip(specOf(t))} · ${fd(t.s)} → ${fd(t.f)}${defMonth(t)!==PMON?` · <b style="color:#62cbff">sigue hasta ${mLabel(defMonth(t))}</b>`:""}</div></div>
-  <div class="ap"><div class="pb"><b style="width:${p}%"></b></div>${p}%</div><div class="av" style="min-width:90px">${t.ca?M$d(val):"<span class=\"n\">sin valor</span>"}</div>
-  <div class="pbtn">${!canB(t)&&!mv?"":mv?`<button class="mini" data-a="back" title="Devolverla a su mes original">↩ Devolver</button>`:`<button class="mini g" data-a="traerA">Traer a ${mLabel(cur)}</button><select class="mini" data-a="mov"><option value="">Llevar a…</option>${mons.filter(m=>m!==PMON).map(m=>`<option value="${m}">→ ${mLabel(m)}</option>`).join("")}</select>`}</div></div>`};
- const hs=isPast?hist.filter(spOnly):[],hProg=hs.reduce((s,t)=>s+t.ca*KF,0),hExe=hs.reduce((s,t)=>s+t.ca*KF*pcN(t)/100,0),hPend=hProg-hExe,nOk=hs.filter(okT).length,nMvH=hs.filter(t=>!okT(t)&&isMoved(t)).length,nSV=hs.filter(t=>!t.ca).length;
+  return `<div class="prow ${ok?"done":""} ${mv?"moved":""}" data-id="${t.id}"><div class="an"><div class="at">${esc(t.n)} ${st}${t.ca?"":` <span class="lowtag" title="En el cronograma esta actividad no tiene costo asignado">${val?"valor manual":"sin valor"}</span>`}${mv?` <span class="mvtag">↪ ya traída a ${mLabel(monthOf(t))}</span>`:""}</div><div class="am">${t.w} · ${frName(frOf(t))} · ${spChip(specOf(t))} · ${fd(t.s)} → ${fd(t.f)}${defMonth(t)!==PMON?` · <b style="color:#62cbff">sigue hasta ${mLabel(defMonth(t))}</b>`:""}</div></div>
+  <div class="ap"><div class="pb"><b style="width:${p}%"></b></div>${p}%</div><div class="av" style="min-width:90px">${val?M$d(val):"<span class=\"n\">sin valor</span>"}</div>
+  <div class="pbtn">${ok?"":vbtn(t)}${!canB(t)&&!mv?"":mv?`<button class="mini" data-a="back" title="Devolverla a su mes original">↩ Devolver</button>`:`<button class="mini g" data-a="traerA">Traer a ${mLabel(cur)}</button><select class="mini" data-a="mov"><option value="">Llevar a…</option>${mons.filter(m=>m!==PMON).map(m=>`<option value="${m}">→ ${mLabel(m)}</option>`).join("")}</select>`}</div></div>`};
+ const hs=isPast?hist.filter(spOnly):[],hProg=hs.reduce((s,t)=>s+valT(t),0),hExe=hs.reduce((s,t)=>s+valT(t)*pcN(t)/100,0),hPend=hProg-hExe,nOk=hs.filter(okT).length,nMvH=hs.filter(t=>!okT(t)&&isMoved(t)).length,nSV=hs.filter(t=>!valT(t)).length;
  const pastBox=`<div class="glass states" style="margin-top:14px;border-color:rgba(255,178,87,.55)"><div class="pmeta"><div><div class="l tl" style="color:#ffb257">CRONOGRAMA DE ${mLabel(PMON).toUpperCase()} · ${scopeName.toUpperCase()}</div>
  <div style="display:flex;gap:28px;flex-wrap:wrap;margin-top:6px"><div><div class="n">${PSC==="act"?"Valor de estas actividades":"Se debía facturar"}</div><div style="font-size:2.1rem;font-weight:800;letter-spacing:-.02em">${M$(hProg)}</div></div><div><div class="n">${PSC==="act"?"Avance de hoy":"Ejecutado (avance real)"}</div><div style="font-size:2.1rem;font-weight:800;color:#3ee08f;letter-spacing:-.02em">${M$(hExe)}</div></div><div><div class="n">${PSC==="act"?"Falta por ejecutar":"Quedó pendiente"}</div><div style="font-size:2.1rem;font-weight:800;color:#ffb257;letter-spacing:-.02em">${M$(hPend)}</div></div></div>
  <div class="n" style="margin-top:8px">${hs.length} actividades · <b style="color:#3ee08f">${nOk} al 100%</b> · <b style="color:#ffb257">${hs.length-nOk} sin terminar</b>${nMvH?` (${nMvH} ya traídas a ${mLabel(cur)})`:""}${nSV?` · ${nSV} sin valor en el cronograma (suman $ 0, pero aquí ves si se ejecutaron)`:""}. ${PSC==="act"?" Aquí salen también las que empezaron o pasaron por el mes y terminan después; su valor completo ya cuenta en su mes de cierre.":""} El avance sale de la carga semanal.</div></div>
@@ -635,7 +651,7 @@ function proView(){
  <div class="l tl" style="margin-top:14px">1 · ESPECIALIDAD</div><div class="chips2" style="margin-top:8px">${["*"].concat(SPN,["Transversal"]).map(s=>`<button class="fchip big ${PSP===s?"on":""}" data-sp="${s}" style="--c:${s==="*"?"#62cbff":SPC[s]}"><i></i>${s==="*"?"Todas":s} · ${M$(spTot(s))}</button>`).join("")}</div>
  ${mat}
  <div class="l tl" style="margin-top:16px">2 · MES — ${scopeName.toUpperCase()} (PROYECTADO SEGÚN CRONOGRAMA) · LOS NARANJA SON MESES ATRASADOS</div>
- <div class="seg" style="display:flex;overflow:auto;margin-top:8px">${(()=>{const nAct=m=>{const[y,mm]=m.split("-").map(Number),a=D(m+"-01"),z=new Date(y,mm,0).getTime();return leaves().filter(t=>fil(t)&&(PSC==="act"?D(t.s)<=z&&D(t.f)>=a:defMonth(t)===m)).length},ms2=prevs.concat(mons),vs=ms2.map(m=>m<cur?leaves().filter(t=>t.ca>0&&defMonth(t)===m&&fil(t)).reduce((s,t)=>s+t.ca*KF,0):base.filter(t=>monthOf(t)===m&&fil(t)).reduce((s,t)=>s+pend(t),0)),mx=Math.max(...vs,1);return ms2.map((m,i)=>`<button data-m="${m}" class="${m===PMON?"on":""}${m<cur?" pastm":""}" style="--c:${m<cur?"#ffb257":(PSP==="*"?"#62cbff":SPC[PSP])};min-width:96px">${mLabel(m)}<small style="display:block;font-weight:600;opacity:.9">${Math.round(vs[i]/1e6).toLocaleString("es-CO")} M${m<cur?" · "+nAct(m)+" act.":""}</small><div class="pmb"><b style="width:${vs[i]/mx*100}%"></b></div></button>`).join("")})()}</div>
+ <div class="seg" style="display:flex;overflow:auto;margin-top:8px">${(()=>{const nAct=m=>{const[y,mm]=m.split("-").map(Number),a=D(m+"-01"),z=new Date(y,mm,0).getTime();return leaves().filter(t=>fil(t)&&(PSC==="act"?D(t.s)<=z&&D(t.f)>=a:defMonth(t)===m)).length},ms2=prevs.concat(mons),vs=ms2.map(m=>m<cur?leaves().filter(t=>valT(t)>0&&defMonth(t)===m&&fil(t)).reduce((s,t)=>s+valT(t),0):base.filter(t=>monthOf(t)===m&&fil(t)).reduce((s,t)=>s+pend(t),0)),mx=Math.max(...vs,1);return ms2.map((m,i)=>`<button data-m="${m}" class="${m===PMON?"on":""}${m<cur?" pastm":""}" style="--c:${m<cur?"#ffb257":(PSP==="*"?"#62cbff":SPC[PSP])};min-width:96px">${mLabel(m)}<small style="display:block;font-weight:600;opacity:.9">${Math.round(vs[i]/1e6).toLocaleString("es-CO")} M${m<cur?" · "+nAct(m)+" act.":""}</small><div class="pmb"><b style="width:${vs[i]/mx*100}%"></b></div></button>`).join("")})()}</div>
  ${isPast?pastBox:`<div class="glass states" style="margin-top:14px"><div class="pmeta"><div><div class="l tl">EJECUTADO MARCADO EN ${mLabel(PMON).toUpperCase()} · ${scopeName.toUpperCase()}</div><div style="font-size:2.6rem;font-weight:800;color:#3ee08f;letter-spacing:-.02em">${M$d(exe)}</div><div class="n">${nx} de ${dm.length} actividades · lo del mes suma ${M$(sumMes)}${nMv?` · <b style="color:#ffb257">${nMv} desplazadas aquí (${M$(vMv)})</b>`:""}${nPar?` · <b style="color:#ffb257">${nPar} ${nPar===1?"parcial":"parciales"}: quedan ${M$d(restPar)} por ejecutar</b>`:""}</div></div>
  <div class="pm2"><div class="l tl">META DEL MES (millones)</div><input class="inp" id="meta" type="number" min="0" step="100" value="${meta}"><div class="n" style="margin-top:6px">${exe/1e6>=meta?"¡Meta cumplida!":"faltan "+Math.round(meta-exe/1e6).toLocaleString("es-CO")+" M"}</div></div></div>
  <div class="sbar" style="height:20px"><span style="width:${pct}%;background:#3ee08f"></span></div></div>`}
@@ -653,7 +669,7 @@ function proView(){
  $("preset").onclick=()=>{const LB={};leaves().forEach(t=>LB[t.id]=t);
  const all=Object.keys(PL).filter(k=>PL[k]&&(PL[k].x||PL[k].m)&&LB[k]&&(PSP==="*"||specOf(LB[k])===PSP));
  const doReset=(ids,label)=>{const val=ids.reduce((s,k)=>s+pend(LB[k]),0),mv=ids.filter(k=>PL[k].m).length,ex=ids.filter(k=>PL[k].x).length;
-  ids.forEach(k=>delete PL[k]);if(PSP==="*")PMETA={};savePL();PSAVED="";
+  ids.forEach(k=>delete PL[k]);if(PSP==="*"){const kv={};Object.keys(PMETA).forEach(k=>{if(k.indexOf("val:")===0)kv[k]=PMETA[k]});PMETA=kv}savePL();PSAVED="";
   logBit("Proyección reiniciada",`${label}: se quitaron ${ex} ejecutadas y ${mv} desplazadas (${M$(val)})`,()=>{render();toast("Proyección reiniciada · "+label)})};
  if(PSP==="*"){adminAsk(`Reiniciar <b>todas las especialidades</b> quita ${all.length} marcas de todo el equipo. Solo lo hace quien tiene la clave. Escríbela:`,()=>doReset(all,"Todas las especialidades"))}
  else{const mes=all.filter(k=>monthOf(LB[k])===PMON);
@@ -675,7 +691,7 @@ function proView(){
  if($("meta"))$("meta").onchange=e=>{PMETA[PMON]=+e.target.value||0;savePL();render()};
  if($("pbulk"))$("pbulk").onclick=()=>{const n=bulk.length;if(!n)return;uiAsk(`¿Traer <b>${n}</b> actividades de ${mLabel(PMON)} pendientes (${M$(sumB)} por ejecutar) a <b>${mLabel(cur)}</b>? Después las puedes ejecutar, dejar parciales o desplazar una por una.`,{ok:"Sí, traerlas"},()=>{const from=PMON;bulk.forEach(t=>{PL[t.id]=PL[t.id]||{};PL[t.id].m=cur;delete PL[t.id].x;delete PL[t.id].v});PSAVED="";savePL();PMON=cur;logBit("Actividades traídas",`${n} actividades de ${mLabel(from)} → ${mLabel(cur)} (${scopeName}, ${M$(sumB)})`,()=>{render();toast(n+" actividades traídas a "+mLabel(cur))})})};
  document.querySelectorAll(".prow").forEach(r=>{const id=+r.dataset.id;
-  r.querySelectorAll("button[data-a]").forEach(b=>b.onclick=e=>{e.stopPropagation();PL[id]=PL[id]||{};const a=b.dataset.a;if(a==="exe"){if(isPar(T.find(z=>z.id===id))){delete PL[id].v}else{PL[id].x=!PL[id].x;delete PL[id].v}}
+  r.querySelectorAll("button[data-a]").forEach(b=>b.onclick=e=>{e.stopPropagation();PL[id]=PL[id]||{};const a=b.dataset.a;if(a==="val"){valAsk(T.find(z=>z.id===id));return}if(a==="exe"){if(isPar(T.find(z=>z.id===id))){delete PL[id].v}else{PL[id].x=!PL[id].x;delete PL[id].v}}
    if(a==="par"){const tt=T.find(z=>z.id===id);parAsk(tt,PL[id]&&PL[id].v!=null?PL[id].v:null,val=>{PL[id]=PL[id]||{};const pd=pend(tt);if(val<=0){delete PL[id].x;delete PL[id].v}else if(val>=pd-1e4){PL[id].x=true;delete PL[id].v}else{PL[id].x=true;PL[id].v=Math.round(val)}PSAVED="";savePL();render()});return}
    if(a==="traer"){PL[id].m=PMON}if(a==="traerA"){PL[id].m=cur;delete PL[id].x;delete PL[id].v;toast("Traída a "+mLabel(cur))}if(a==="back"){delete PL[id].m}PSAVED="";savePL();render()});
   r.querySelectorAll("select[data-a]").forEach(s=>{s.onclick=e=>e.stopPropagation();s.onchange=()=>{if(!s.value)return;PL[id]=PL[id]||{};PL[id].m=s.value;PL[id].x=false;delete PL[id].v;PSAVED="";savePL();render()}})})}
@@ -706,7 +722,7 @@ function proPng(dm,o){
 async function proXlsx(o,sel){sel=sel||{ant:true,ms:o.mons};
  try{await loadLib("https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js",()=>window.ExcelJS)}catch(e){toast("No se pudo cargar el generador de Excel (revisa internet).",true);return}
  const wb=new ExcelJS.Workbook(),NAV="FF123A63",BLU="FFDCEBFA",hdr=r=>{r.eachCell(c=>{c.font={bold:true,color:{argb:"FFFFFFFF"}};c.fill={type:"pattern",pattern:"solid",fgColor:{argb:NAV}};c.alignment={vertical:"middle",horizontal:"center",wrapText:true}});r.height=26};
- const spOnly=t=>PSP==="*"||specOf(t)===PSP,base=leaves().filter(t=>t.ca>0&&pcN(t)<100&&spOnly(t)),mons=sel.ms;
+ const spOnly=t=>PSP==="*"||specOf(t)===PSP,base=leaves().filter(t=>valT(t)>0&&pcN(t)<100&&spOnly(t)),mons=sel.ms;
  const w1=wb.addWorksheet("Resumen",{views:[{showGridLines:false}]});w1.columns=[{width:34},{width:22},{width:22},{width:22}];
  w1.mergeCells("A1:D1");w1.getCell("A1").value=`Proyección · ${o.scopeName} · ${mons.length>3?"varios meses":(sel.ant?"Atrasadas + ":"")+mons.map(mLabel).join(", ")}`;w1.getCell("A1").font={bold:true,size:16,color:{argb:NAV}};
  w1.getCell("A2").value="PTAP La Ayurá · Fase I · corte "+fd(CORTE)+" · millones de pesos con AU";w1.getCell("A2").font={italic:true,color:{argb:"FF666666"}};
