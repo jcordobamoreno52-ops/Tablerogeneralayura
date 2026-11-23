@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta http-equiv="Cache-Control" content="no-cache, must-revalidate"><meta name="ayura-build" content="20261123084710">
+<html lang="es"><head><meta charset="utf-8"><meta http-equiv="Cache-Control" content="no-cache, must-revalidate"><meta name="ayura-build" content="20261123091115">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tablero PTAP La Ayurá · Fase I</title>
 <style>
@@ -154,6 +154,7 @@ svg text{font-family:inherit}
 .lowtag{display:inline-block;font-size:.66rem;font-weight:700;padding:2px 8px;border-radius:99px;color:#9fb2bf;border:1px dashed rgba(159,178,191,.7);margin-left:6px}
 .xqr{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.07);cursor:pointer;font-weight:600}
 .xqr b{margin-left:auto;color:var(--mut);font-weight:600}.xqr input{width:18px;height:18px;accent-color:#3ee08f}
+.seg button.pastm small{color:#ffb257}.seg button.pastm.on small{color:#a35a00}
 </style>
 </head><body>
 <div id="bg"><svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -495,17 +496,17 @@ function parAsk(t,cur,cb){const pd=pend(t);
  const ok=()=>{const v=parseParcial(i.value,pd);if(isNaN(v)||v<0){toast("Escribe un porcentaje o un valor en millones",true);return}d.remove();cb(v)};
  d.querySelector("#parY").onclick=ok;d.querySelector("#parN").onclick=()=>d.remove();i.onkeydown=e=>{if(e.key==="Enter")ok()}}
 /* ===== Excel de Proyección: escoger qué guardar ===== */
-function proXlsxAsk(o){const hasAnt=o.fs.some(k=>o.ant(k)>0);
+function proXlsxAsk(o){const pm=o.mons.includes(PMON)?PMON:o.mons[0],hasAnt=o.fs.some(k=>o.ant(k)>0);
  const tot=m=>o.fs.reduce((a,k)=>a+o.v(k,m),0);
  const d=modalBox(`<div style="font-size:1.1rem;font-weight:700">¿Qué quieres guardar en el Excel?</div>
  <div class="n" style="margin-top:6px">Especialidad: <b>${PSP==="*"?"todas":PSP}</b>${PSP==="*"?'<br><span style="color:#ffc857">Estás viendo todas las especialidades. Si solo quieres la tuya, cancela y escógela arriba.</span>':""}</div>
- <div class="chips2" style="margin-top:12px"><button class="fchip" id="xqM">Solo ${mLabel(PMON)}</button><button class="fchip" id="xqT">Todos los meses</button><button class="fchip" id="xqN">Ninguno</button></div>
+ <div class="chips2" style="margin-top:12px"><button class="fchip" id="xqM">Solo ${mLabel(pm)}</button><button class="fchip" id="xqT">Todos los meses</button><button class="fchip" id="xqN">Ninguno</button></div>
  <div style="display:grid;gap:6px;margin-top:12px">${hasAnt?`<label class="xqr"><input type="checkbox" data-k="ant"> Atrasadas (meses anteriores) <b>${M$(o.fs.reduce((a,k)=>a+o.ant(k),0))}</b></label>`:""}
- ${o.mons.map(m=>`<label class="xqr"><input type="checkbox" data-k="${m}" ${m===PMON?"checked":""}> ${mLabel(m)} <b>${M$(tot(m))}</b></label>`).join("")}</div>
+ ${o.mons.map(m=>`<label class="xqr"><input type="checkbox" data-k="${m}" ${m===pm?"checked":""}> ${mLabel(m)} <b>${M$(tot(m))}</b></label>`).join("")}</div>
  <div class="n" style="margin-top:10px">Cada mes sale en su propia pestaña, más un resumen.</div>
  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px"><button class="btn" id="xqC">Cancelar</button><button class="btn gr" id="xqY">Descargar Excel</button></div>`);
  const cks=[...d.querySelectorAll("input[data-k]")];
- d.querySelector("#xqM").onclick=()=>cks.forEach(c=>c.checked=c.dataset.k===PMON);
+ d.querySelector("#xqM").onclick=()=>cks.forEach(c=>c.checked=c.dataset.k===pm);
  d.querySelector("#xqT").onclick=()=>cks.forEach(c=>c.checked=c.dataset.k!=="ant");
  d.querySelector("#xqN").onclick=()=>cks.forEach(c=>c.checked=false);
  d.querySelector("#xqC").onclick=()=>d.remove();
@@ -575,18 +576,20 @@ function bkView(){
 
 /* ===== Proyección ===== */
 let PMX=false,PSAVED="";
+const monthsBack=(m0,n)=>{let[y,m]=m0.split("-").map(Number);const a=[];for(let i=0;i<n;i++){m--;if(m<1){m=12;y--}a.unshift(y+"-"+pad(m))}return a};
 function proCtx(){
- const mons=monthsFrom();if(!PMON||!mons.includes(PMON))PMON=mons[0];
+ const mons=monthsFrom(),prevs=monthsBack(mons[0],4);if(!PMON||!(mons.includes(PMON)||prevs.includes(PMON)))PMON=mons[0];
  const mEnd=(()=>{const[y,m]=PMON.split("-").map(Number);return new Date(y,m,0).getTime()})(),mStart=D(PMON+"-01");
  const base=leaves().filter(t=>t.ca>0&&pcN(t)<100);
  const fil=t=>(PSP==="*"||specOf(t)===PSP)&&(PFR==="*"||frOf(t)===PFR)&&(!PQ||nrm(t.n+" "+t.w).includes(nrm(PQ)));
  const delMes=base.filter(t=>monthOf(t)===PMON);
  const otras=base.filter(t=>monthOf(t)!==PMON&&D(t.s)<=mEnd&&(D(t.f)<mStart||D(t.s)<=mEnd)&&(D(t.f)<mStart||monthOf(t)<PMON||D(t.s)<mStart));
  const buscar=base.filter(t=>monthOf(t)!==PMON);
- return {mons,mEnd,mStart,base,fil,delMes,otras,buscar}}
+ return {mons,prevs,mEnd,mStart,base,fil,delMes,otras,buscar}}
 const isMoved=t=>{const p=PL[t.id];return !!(p&&p.m&&p.m!==defMonth(t))};
 function proView(){
- const C=proCtx(),{mons,base,fil,delMes,otras,buscar}=C;
+ const C=proCtx(),{mons,prevs,base,fil,delMes,otras,buscar}=C;
+ const cur=mons[0],isPast=PMON<cur;if(isPast&&PTAB!=="mes")PTAB="mes";
  const spOnly=t=>PSP==="*"||specOf(t)===PSP;
  const baseL=PTAB==="mes"?delMes:PTAB==="otras"?otras:buscar;
  const filNoSp=t=>(PFR==="*"||frOf(t)===PFR)&&(!PQ||nrm(t.n+" "+t.w).includes(nrm(PQ))),spTot=s=>base.filter(t=>filNoSp(t)&&(s==="*"||specOf(t)===s)).reduce((a,t)=>a+pend(t),0);
@@ -612,20 +615,21 @@ function proView(){
  const row=t=>{const x=planOf(t).x,mv=isMoved(t),par=isPar(t),low=pend(t)<1.5e6;
   return `<div class="prow ${x?"done":""} ${mv?"moved":""}" data-id="${t.id}"><div class="an"><div class="at">${esc(t.n)}${mv?` <span class="mvtag">↪ desplazada · era de ${mLabel(defMonth(t))}</span>`:""}${par?` <span class="partag">Parcial · ${Math.round(planOf(t).v/pend(t)*100)}% · ejecuta ${M$d(planOf(t).v)} · faltan ${M$d(pend(t)-planOf(t).v)}</span>`:""}${low?` <span class="lowtag" title="En el cronograma esta actividad tiene un valor muy bajo">valor bajo</span>`:""}</div><div class="am">${t.w} · ${frName(frOf(t))} · ${spChip(specOf(t))} · ${fd(t.s)} → ${fd(t.f)} · ${pcN(t)}%${PTAB!=="mes"?" · mes: "+mLabel(monthOf(t)):""}</div></div>
   <div class="ap"><div class="pb"><b style="width:${pcN(t)}%"></b></div>${pcN(t)}%</div><div class="av" style="min-width:90px">${M$d(pend(t))}</div>
-  <div class="pbtn">${PTAB!=="mes"?`<button class="mini g" data-a="traer">Traer a ${mLabel(PMON)}</button>`:`<button class="mini ${x&&!par?"g on":"g"}" data-a="exe">${par?"Completar":x?"✔ Ejecutada":"Ejecutar"}</button><button class="mini ${par?"g on":""}" data-a="par" title="Poner a mano cuánto se ejecuta este mes">Parcial</button>
+  <div class="pbtn">${isPast?`<button class="mini g" data-a="traerA">Traer a ${mLabel(cur)}</button><select class="mini" data-a="mov"><option value="">Llevar a…</option>${mons.filter(m=>m!==PMON).map(m=>`<option value="${m}">→ ${mLabel(m)}</option>`).join("")}</select>${mv?`<button class="mini" data-a="back" title="Devolverla a su mes original">↩</button>`:""}`:PTAB!=="mes"?`<button class="mini g" data-a="traer">Traer a ${mLabel(PMON)}</button>`:`<button class="mini ${x&&!par?"g on":"g"}" data-a="exe">${par?"Completar":x?"✔ Ejecutada":"Ejecutar"}</button><button class="mini ${par?"g on":""}" data-a="par" title="Poner a mano cuánto se ejecuta este mes">Parcial</button>
   <select class="mini" data-a="mov"><option value="">Desplazar…</option>${mons.filter(m=>m!==PMON).map(m=>`<option value="${m}">→ ${mLabel(m)}</option>`).join("")}</select>${mv?`<button class="mini" data-a="back" title="Devolverla a su mes original">↩</button>`:""}`}</div></div>`};
+ const pastBox=`<div class="glass states" style="margin-top:14px;border-color:rgba(255,178,87,.55)"><div class="pmeta"><div><div class="l tl" style="color:#ffb257">ATRASADAS DE ${mLabel(PMON).toUpperCase()} · ${scopeName.toUpperCase()}</div><div style="font-size:2.4rem;font-weight:800;color:#ffb257;letter-spacing:-.02em">${M$d(sumMes)}</div><div class="n">${dm.length} actividades sin terminar que debían cerrar en ${mLabel(PMON)}. Llévalas a ${mLabel(cur)} para que entren en la proyección.</div></div><div class="pm2"><button class="btn gr" id="pbulk" ${list.length?"":"disabled"}>Traer ${list.length} a ${mLabel(cur)}</button></div></div></div>`;
  $("view").innerHTML=`<div class="bar"><button class="btn" id="back">← Módulos</button><h2>Proyección</h2><div class="sp"></div><button class="btn gr" id="psave">${PSAVED?"✔ Guardado "+PSAVED:"Guardar"}</button><button class="btn" id="pimg">Imagen</button><button class="btn" id="pxls">Excel</button><button class="btn" id="pcopy">Copiar</button><button class="btn dng" id="preset">Reiniciar ${PSP==="*"?"todo":PSP}</button></div>
  <div class="l tl" style="margin-top:14px">1 · ESPECIALIDAD</div><div class="chips2" style="margin-top:8px">${["*"].concat(SPN,["Transversal"]).map(s=>`<button class="fchip big ${PSP===s?"on":""}" data-sp="${s}" style="--c:${s==="*"?"#62cbff":SPC[s]}"><i></i>${s==="*"?"Todas":s} · ${M$(spTot(s))}</button>`).join("")}</div>
  ${mat}
- <div class="l tl" style="margin-top:16px">2 · MES — ${scopeName.toUpperCase()} (PROYECTADO SEGÚN CRONOGRAMA)</div>
- <div class="seg" style="display:flex;overflow:auto;margin-top:8px">${(()=>{const vs=mons.map(m=>base.filter(t=>monthOf(t)===m&&fil(t)).reduce((s,t)=>s+pend(t),0)),mx=Math.max(...vs,1);return mons.map((m,i)=>`<button data-m="${m}" class="${m===PMON?"on":""}" style="--c:${PSP==="*"?"#62cbff":SPC[PSP]};min-width:96px">${mLabel(m)}<small style="display:block;font-weight:600;opacity:.9">${Math.round(vs[i]/1e6).toLocaleString("es-CO")} M</small><div class="pmb"><b style="width:${vs[i]/mx*100}%"></b></div></button>`).join("")})()}</div>
- <div class="glass states" style="margin-top:14px"><div class="pmeta"><div><div class="l tl">EJECUTADO MARCADO EN ${mLabel(PMON).toUpperCase()} · ${scopeName.toUpperCase()}</div><div style="font-size:2.6rem;font-weight:800;color:#3ee08f;letter-spacing:-.02em">${M$d(exe)}</div><div class="n">${nx} de ${dm.length} actividades · lo del mes suma ${M$(sumMes)}${nMv?` · <b style="color:#ffb257">${nMv} desplazadas aquí (${M$(vMv)})</b>`:""}${nPar?` · <b style="color:#ffb257">${nPar} ${nPar===1?"parcial":"parciales"}: quedan ${M$d(restPar)} por ejecutar</b>`:""}</div></div>
+ <div class="l tl" style="margin-top:16px">2 · MES — ${scopeName.toUpperCase()} (PROYECTADO SEGÚN CRONOGRAMA) · LOS NARANJA SON MESES ATRASADOS</div>
+ <div class="seg" style="display:flex;overflow:auto;margin-top:8px">${(()=>{const ms2=prevs.concat(mons),vs=ms2.map(m=>base.filter(t=>monthOf(t)===m&&fil(t)).reduce((s,t)=>s+pend(t),0)),mx=Math.max(...vs,1);return ms2.map((m,i)=>`<button data-m="${m}" class="${m===PMON?"on":""}${m<cur?" pastm":""}" style="--c:${m<cur?"#ffb257":(PSP==="*"?"#62cbff":SPC[PSP])};min-width:96px">${mLabel(m)}<small style="display:block;font-weight:600;opacity:.9">${Math.round(vs[i]/1e6).toLocaleString("es-CO")} M</small><div class="pmb"><b style="width:${vs[i]/mx*100}%"></b></div></button>`).join("")})()}</div>
+ ${isPast?pastBox:`<div class="glass states" style="margin-top:14px"><div class="pmeta"><div><div class="l tl">EJECUTADO MARCADO EN ${mLabel(PMON).toUpperCase()} · ${scopeName.toUpperCase()}</div><div style="font-size:2.6rem;font-weight:800;color:#3ee08f;letter-spacing:-.02em">${M$d(exe)}</div><div class="n">${nx} de ${dm.length} actividades · lo del mes suma ${M$(sumMes)}${nMv?` · <b style="color:#ffb257">${nMv} desplazadas aquí (${M$(vMv)})</b>`:""}${nPar?` · <b style="color:#ffb257">${nPar} ${nPar===1?"parcial":"parciales"}: quedan ${M$d(restPar)} por ejecutar</b>`:""}</div></div>
  <div class="pm2"><div class="l tl">META DEL MES (millones)</div><input class="inp" id="meta" type="number" min="0" step="100" value="${meta}"><div class="n" style="margin-top:6px">${exe/1e6>=meta?"¡Meta cumplida!":"faltan "+Math.round(meta-exe/1e6).toLocaleString("es-CO")+" M"}</div></div></div>
- <div class="sbar" style="height:20px"><span style="width:${pct}%;background:#3ee08f"></span></div></div>
+ <div class="sbar" style="height:20px"><span style="width:${pct}%;background:#3ee08f"></span></div></div>`}
  <div class="glass states" style="margin-top:14px"><div class="filters">
  <select class="inp" id="pfr"><option value="*">Todos los frentes</option>${frKeys.map(k=>`<option value="${k}" ${PFR===k?"selected":""}>${frName(k)}</option>`).join("")}</select><input class="inp" id="pq" placeholder="Buscar actividad… (ej. excavación, MH, tubería)" value="${esc(PQ)}"></div>
  ${filtros.length?`<div class="afil"><span>Filtros activos: <b>${filtros.join(" · ")}</b></span><button class="mini" id="pclr">Quitar filtros</button></div>`:""}
- <div class="seg" style="margin:12px 0;flex-wrap:wrap"><button data-t="mes" class="${PTAB==="mes"?"on":""}">Del mes (${delMes.filter(fil).length})</button><button data-t="otras" class="${PTAB==="otras"?"on":""}">Otras en ejecución (${otras.filter(fil).length})</button><button data-t="buscar" class="${PTAB==="buscar"?"on":""}">🔎 Buscar y traer</button></div>
+ <div class="seg" style="margin:12px 0;flex-wrap:wrap"><button data-t="mes" class="${PTAB==="mes"?"on":""}">Del mes (${delMes.filter(fil).length})</button>${isPast?"":`<button data-t="otras" class="${PTAB==="otras"?"on":""}">Otras en ejecución (${otras.filter(fil).length})</button><button data-t="buscar" class="${PTAB==="buscar"?"on":""}">🔎 Buscar y traer</button>`}</div>
  ${PTAB==="otras"?'<div class="n" style="margin-bottom:8px">Actividades de otros meses que aún no están al 100% y pueden estarse ejecutando en campo. Tráelas a este mes para que sumen.</div>':""}
  ${PTAB==="buscar"?`<div class="n" style="margin-bottom:8px">Busca cualquier actividad pendiente del cronograma y tráela a ${mLabel(PMON)}.</div><div class="chips2" style="margin-bottom:8px">${["excavación","tubería","relleno","demolición","MH","cable","instalación"].map(w=>`<button class="fchip" data-q="${w}">${w}</button>`).join("")}</div>${!PQ?'<div class="n" style="padding:10px 4px">Escribe arriba o toca una palabra para buscar.</div>':""}`:""}
  <div class="sumbar"><span>${scopeName[0].toUpperCase()+scopeName.slice(1)} · ${mLabel(PMON)}${PTAB==="otras"?" · otras en ejecución":PTAB==="buscar"?" · resultados de búsqueda":""}</span><b>${list.length} actividades · ${M$(sumL)}</b></div>
@@ -646,18 +650,19 @@ function proView(){
  $("pimg").onclick=()=>proPng(dm,{exe,sumMes,meta,nx,nMv,scopeName});
  $("pxls").onclick=()=>proXlsxAsk({fs,v,ant,mons,exe,sumMes,meta,scopeName});
  $("pmxT").onclick=()=>{PMX=!PMX;render()};
- document.querySelectorAll(".seg button[data-m]").forEach(b=>b.onclick=()=>{PMON=b.dataset.m;render()});
+ document.querySelectorAll(".seg button[data-m]").forEach(b=>b.onclick=()=>{PMON=b.dataset.m;if(PMON<cur)PTAB="mes";render()});
  document.querySelectorAll(".seg button[data-t]").forEach(b=>b.onclick=()=>{PTAB=b.dataset.t;render()});
  document.querySelectorAll(".fchip[data-sp]").forEach(b=>b.onclick=()=>{PSP=b.dataset.sp;render()});
  document.querySelectorAll(".fchip[data-q]").forEach(b=>b.onclick=()=>{PQ=b.dataset.q;render()});
  $("pfr").onchange=e=>{PFR=e.target.value;render()};
  document.querySelectorAll(".pmx [data-pf]").forEach(c=>c.onclick=()=>{PFR=c.dataset.pf;if(c.dataset.pm){PMON=c.dataset.pm;PTAB="mes"}render()});
  $("pq").oninput=e=>{PQ=e.target.value;clearTimeout(window._pqt);window._pqt=setTimeout(()=>{render();const i=$("pq");i.focus();i.setSelectionRange(PQ.length,PQ.length)},350)};
- $("meta").onchange=e=>{PMETA[PMON]=+e.target.value||0;savePL();render()};
+ if($("meta"))$("meta").onchange=e=>{PMETA[PMON]=+e.target.value||0;savePL();render()};
+ if($("pbulk"))$("pbulk").onclick=()=>{const n=list.length;if(!n)return;uiAsk(`¿Traer <b>${n}</b> actividades de ${mLabel(PMON)} (${M$(sumL)}) a <b>${mLabel(cur)}</b>? Después las puedes ejecutar, dejar parciales o desplazar una por una.`,{ok:"Sí, traerlas"},()=>{const from=PMON;list.forEach(t=>{PL[t.id]=PL[t.id]||{};PL[t.id].m=cur;delete PL[t.id].x;delete PL[t.id].v});PSAVED="";savePL();PMON=cur;logBit("Actividades traídas",`${n} actividades de ${mLabel(from)} → ${mLabel(cur)} (${scopeName}, ${M$(sumL)})`,()=>{render();toast(n+" actividades traídas a "+mLabel(cur))})})};
  document.querySelectorAll(".prow").forEach(r=>{const id=+r.dataset.id;
   r.querySelectorAll("button[data-a]").forEach(b=>b.onclick=e=>{e.stopPropagation();PL[id]=PL[id]||{};const a=b.dataset.a;if(a==="exe"){if(isPar(T.find(z=>z.id===id))){delete PL[id].v}else{PL[id].x=!PL[id].x;delete PL[id].v}}
    if(a==="par"){const tt=T.find(z=>z.id===id);parAsk(tt,PL[id]&&PL[id].v!=null?PL[id].v:null,val=>{PL[id]=PL[id]||{};const pd=pend(tt);if(val<=0){delete PL[id].x;delete PL[id].v}else if(val>=pd-1e4){PL[id].x=true;delete PL[id].v}else{PL[id].x=true;PL[id].v=Math.round(val)}PSAVED="";savePL();render()});return}
-   if(a==="traer"){PL[id].m=PMON}if(a==="back"){delete PL[id].m}PSAVED="";savePL();render()});
+   if(a==="traer"){PL[id].m=PMON}if(a==="traerA"){PL[id].m=cur;delete PL[id].x;delete PL[id].v;toast("Traída a "+mLabel(cur))}if(a==="back"){delete PL[id].m}PSAVED="";savePL();render()});
   r.querySelectorAll("select[data-a]").forEach(s=>{s.onclick=e=>e.stopPropagation();s.onchange=()=>{if(!s.value)return;PL[id]=PL[id]||{};PL[id].m=s.value;PL[id].x=false;delete PL[id].v;PSAVED="";savePL();render()}})})}
 
 /* ===== exportar imagen ===== */
